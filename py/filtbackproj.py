@@ -2,17 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
 from scipy.fftpack import fft, fftshift, ifft
-
-def dummyImg(size0, size1):
-    """this just creates a silly 8-bit image consisting of a solid rectangle
-    inputs: size0, size1 - dimensions of image in pixels
-    output: dumImg - PIL image object"""
-    M = np.zeros((size0, size1))
-    a = round(size0/4)
-    b = round(size1/4)
-    M[a:size0-a,b:size1-b] = 255 #insert centered rectangle with dimensions 1/2 the size of the image
-    dumImg = Image.fromarray(M.astype('uint8'))  #create image object
-    return dumImg
+from skimage.transform import radon
 
 def padImage(img):
     """pad images with zeros such that new image is a square with sides equal to
@@ -104,67 +94,164 @@ def backproject(sinogram, theta):
     inputs:  sinogram - [n x m] numpy array where n is the number of projections and m the number of angles
              theta - vector of length m denoting the angles represented in the sinogram
     output: backprojArray - [n x n] backprojected 2-D numpy array"""
+    
+    # Initialize variables
     imageLen = sinogram.shape[0]
     reconMatrix = np.zeros((imageLen, imageLen))
     
-    x = np.arange(imageLen)-imageLen/2 #create coordinate system centered at (x,y = 0,0)
+    # Create coordinate system centered at (x, y = 0, 0)
+    x = np.arange(imageLen)-imageLen/2
     y = x.copy()
     X, Y = np.meshgrid(x, y)
 
+    # Initialize interactive plotting
     plt.ion()
     fig2, ax = plt.subplots()
     im = plt.imshow(reconMatrix, cmap='gray')
 
+    # Convert input angles to radians
     theta = theta*np.pi/180
     numAngles = len(theta)
 
+    # Iterate through input angles
     for n in range(numAngles):
-        Xrot = X*np.sin(theta[n])-Y*np.cos(theta[n]) #determine rotated x-coordinate about origin in mesh grid form
-        XrotCor = np.round(Xrot+imageLen/2) #shift back to original image coordinates, round values to make indices
+        # Calculate rotated x-coordinate about origin in mesh grid form
+        Xrot = X*np.sin(theta[n])-Y*np.cos(theta[n])
+        # Shift back to original image coordinates and round values to make indices
+        XrotCor = np.round(Xrot+imageLen/2)
         XrotCor = XrotCor.astype('int')
+        
+        # Initialize projection matrix
         projMatrix = np.zeros((imageLen, imageLen))
-        m0, m1 = np.where((XrotCor >= 0) & (XrotCor <= (imageLen-1))) #after rotating, you'll inevitably have new coordinates that exceed the size of the original
-        s = sinogram[:,n] #get projection
-        projMatrix[m0, m1] = s[XrotCor[m0, m1]]  #backproject in-bounds data
+        
+        # Check for valid rotated coordinates within the image boundary
+        m0, m1 = np.where((XrotCor >= 0) & (XrotCor <= (imageLen-1)))
+        s = sinogram[:,n]  # Get projection
+        
+        # Backproject in-bounds data into the projection matrix
+        projMatrix[m0, m1] = s[XrotCor[m0, m1]]
+        
+        # Update the reconstruction matrix
         reconMatrix += projMatrix
+        
+        # Update and display the reconstructed image
         im.set_data(Image.fromarray((reconMatrix-np.min(reconMatrix))/np.ptp(reconMatrix)*255))
         ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
         fig2.canvas.draw()
         fig2.canvas.flush_events()
-         
+
+    # Cleanup and return final backprojected array
     plt.close()
     plt.ioff()
     backprojArray = np.flipud(reconMatrix)
     return backprojArray
 
+# TODO: Implement the continuous image reconstruction function, rightnow it is just a copy of the backproject function
+def continuous_image_reconstruction(sinogram, theta, learning_rate=0.1, max_iter=10):
+    """Backprojection function. 
+    inputs:  sinogram - [n x m] numpy array where n is the number of projections and m the number of angles
+             theta - vector of length m denoting the angles represented in the sinogram
+    output: backprojArray - [n x n] backprojected 2-D numpy array"""
+    
+    # Initialize variables
+    imageLen = sinogram.shape[0]
+    reconMatrix = np.zeros((imageLen, imageLen))
+    
+    # Create coordinate system centered at (x, y = 0, 0)
+    x = np.arange(imageLen)-imageLen/2
+    y = x.copy()
+    X, Y = np.meshgrid(x, y)
+
+    # Initialize interactive plotting
+    plt.ion()
+    fig2, ax = plt.subplots()
+    im = plt.imshow(reconMatrix, cmap='gray')
+
+    # Convert input angles to radians
+    theta = theta*np.pi/180
+    numAngles = len(theta)
+
+    # Iterate through input angles
+    for n in range(numAngles):
+        # Calculate rotated x-coordinate about origin in mesh grid form
+        Xrot = X*np.sin(theta[n])-Y*np.cos(theta[n])
+        # Shift back to original image coordinates and round values to make indices
+        XrotCor = np.round(Xrot+imageLen/2)
+        XrotCor = XrotCor.astype('int')
+        
+        # Initialize projection matrix
+        projMatrix = np.zeros((imageLen, imageLen))
+        
+        # Check for valid rotated coordinates within the image boundary
+        m0, m1 = np.where((XrotCor >= 0) & (XrotCor <= (imageLen-1)))
+        s = sinogram[:,n]  # Get projection
+        
+        # Backproject in-bounds data into the projection matrix
+        projMatrix[m0, m1] = s[XrotCor[m0, m1]]
+        
+        # Update the reconstruction matrix
+        reconMatrix += projMatrix
+        
+        # Update and display the reconstructed image
+        im.set_data(Image.fromarray((reconMatrix-np.min(reconMatrix))/np.ptp(reconMatrix)*255))
+        ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
+        fig2.canvas.draw()
+        fig2.canvas.flush_events()
+
+    # Cleanup and return final backprojected array
+    plt.close()
+    plt.ioff()
+    backprojArray = np.flipud(reconMatrix)
+    return backprojArray
+
+
+
+
 #def main():
 if __name__ == '__main__':
 
-    #myImg = dummyImg(500,700)
     myImg = Image.open('SheppLogan.png').convert('L')
         
-    myImgPad, c0, c1 = padImage(myImg)  #PIL image object
-    dTheta = 1
+    dTheta = 10
     theta = np.arange(0,181,dTheta)
+
     print('Getting projections\n')
-    mySino = getProj(myImgPad, theta)  #numpy array
+    mySino = getProj(myImg, theta)  #numpy array
+
     print('Filtering\n')
     filtSino = projFilter(mySino)  #numpy array
-    print('Performing backprojection')  
 
+    print('Performing continuous image reconstruction')
+    recon3 = continuous_image_reconstruction(filtSino, theta)
+    recon4 = np.round((recon3-np.min(recon3))/np.ptp(recon3)*255) #convert values to integers 0-255
+    reconImg2 = Image.fromarray(recon4.astype('uint8'))
+
+    print('Performing backprojection')  
     recon = backproject(filtSino, theta)
     recon2 = np.round((recon-np.min(recon))/np.ptp(recon)*255) #convert values to integers 0-255
     reconImg = Image.fromarray(recon2.astype('uint8'))
-    n0, n1 = myImg.size
-    reconImg = reconImg.crop((c0, c1, c0+n0, c1+n1))
 
-    fig3, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(12,4))
-    ax1.imshow(myImg, cmap='gray')
+
+    ''' 
+    Display results 
+    '''
+    fig3, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1,5, figsize=(12,4))
+
     ax1.set_title('Original Image')
+    ax1.imshow(myImg, cmap='gray')
+    
+    ax2.set_title('FBP')
     ax2.imshow(reconImg, cmap='gray')
-    ax2.set_title('Backprojected Image')
-    ax3.imshow(ImageChops.difference(myImg, reconImg), cmap='gray') #note this currently doesn't work for imported images
+
     ax3.set_title('Error')
+    ax3.imshow(ImageChops.difference(myImg, reconImg), cmap='gray')
+
+    ax4.set_title('CIR')
+    ax4.imshow(reconImg2, cmap='gray')
+
+    ax5.set_title('Error')
+    ax5.imshow(ImageChops.difference(myImg, reconImg2), cmap='gray')
+
     plt.show()
 
 
