@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
 from scipy.fftpack import fft, fftshift, ifft
-from skimage.transform import radon
 
 def padImage(img):
     """pad images with zeros such that new image is a square with sides equal to
@@ -147,7 +146,7 @@ def backproject(sinogram, theta):
     return backprojArray
 
 # TODO: Implement the continuous image reconstruction function, rightnow it is just a copy of the backproject function
-def continuous_image_reconstruction(sinogram, theta, learning_rate=0.1, max_iter=10):
+def continuous_image_reconstruction(sinogram, theta):
     """Backprojection function. 
     inputs:  sinogram - [n x m] numpy array where n is the number of projections and m the number of angles
              theta - vector of length m denoting the angles represented in the sinogram
@@ -204,37 +203,52 @@ def continuous_image_reconstruction(sinogram, theta, learning_rate=0.1, max_iter
     backprojArray = np.flipud(reconMatrix)
     return backprojArray
 
-
+def CIR(sinogram, time):
+    for t in range(time-1):
+        dTheta = int(1*(time-t))
+        theta = np.arange(0, 181, dTheta) 
+        continuous_image_reconstruction(sinogram, theta)
+    
 
 
 #def main():
 if __name__ == '__main__':
 
     myImg = Image.open('SheppLogan.png').convert('L')
-        
-    dTheta = 10
-    theta = np.arange(0,181,dTheta)
+    
+    # CIR
+    dTheta = 1
+    thetaCIR = np.arange(0, 181, dTheta)
 
     print('Getting projections\n')
-    mySino = getProj(myImg, theta)  #numpy array
+    mySino = getProj(myImg, thetaCIR)  #numpy array
 
     print('Filtering\n')
     filtSino = projFilter(mySino)  #numpy array
 
     print('Performing continuous image reconstruction')
-    recon3 = continuous_image_reconstruction(filtSino, theta)
+    #recon3 = CIR(filtSino, 5)
+    recon3 = continuous_image_reconstruction(filtSino, thetaCIR)
     recon4 = np.round((recon3-np.min(recon3))/np.ptp(recon3)*255) #convert values to integers 0-255
     reconImg2 = Image.fromarray(recon4.astype('uint8'))
 
+    # FBP
+    dTheta = 10
+    thetaFBP = np.arange(0,181, dTheta)
+
+    print('Getting projections\n')
+    mySino = getProj(myImg, thetaFBP)  #numpy array
+
+    print('Filtering\n')
+    filtSino = projFilter(mySino)  #numpy array
+
     print('Performing backprojection')  
-    recon = backproject(filtSino, theta)
+    recon = backproject(filtSino, thetaFBP)
     recon2 = np.round((recon-np.min(recon))/np.ptp(recon)*255) #convert values to integers 0-255
     reconImg = Image.fromarray(recon2.astype('uint8'))
 
 
-    ''' 
-    Display results 
-    '''
+    # Display results 
     fig3, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1,5, figsize=(12,4))
 
     ax1.set_title('Original Image')
@@ -255,5 +269,5 @@ if __name__ == '__main__':
     plt.show()
 
 
-
+#01200709954
 
