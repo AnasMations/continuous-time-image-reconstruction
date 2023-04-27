@@ -31,7 +31,7 @@ def getProj(img, theta):
     plt.ion()
     fig1, (ax1, ax2) = plt.subplots(1,2)
     im1 = ax1.imshow(img, cmap='gray')
-    ax1.set_title('<-- Sum')
+    ax1.set_title('Object')
     im2 = ax2.imshow(sinogram, extent=[theta[0],theta[-1], img.size[0]-1, 0],
                      cmap='gray', aspect='auto')
     ax2.set_xlabel('Angle (deg)')
@@ -135,7 +135,7 @@ def backproject(sinogram, theta):
         
         # Update and display the reconstructed image
         im.set_data(Image.fromarray((reconMatrix-np.min(reconMatrix))/np.ptp(reconMatrix)*255))
-        ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
+        #ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
         fig2.canvas.draw()
         fig2.canvas.flush_events()
 
@@ -147,10 +147,6 @@ def backproject(sinogram, theta):
 
 # TODO: Implement the continuous image reconstruction function, rightnow it is just a copy of the backproject function
 def continuous_image_reconstruction(sinogram, theta):
-    """Backprojection function. 
-    inputs:  sinogram - [n x m] numpy array where n is the number of projections and m the number of angles
-             theta - vector of length m denoting the angles represented in the sinogram
-    output: backprojArray - [n x n] backprojected 2-D numpy array"""
     
     # Initialize variables
     imageLen = sinogram.shape[0]
@@ -193,7 +189,7 @@ def continuous_image_reconstruction(sinogram, theta):
         
         # Update and display the reconstructed image
         im.set_data(Image.fromarray((reconMatrix-np.min(reconMatrix))/np.ptp(reconMatrix)*255))
-        ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
+        #ax.set_title('Theta = %.2f degrees' % (theta[n]*180/np.pi))
         fig2.canvas.draw()
         fig2.canvas.flush_events()
 
@@ -218,7 +214,7 @@ if __name__ == '__main__':
     
     # CIR
     dTheta = 1
-    thetaCIR = np.arange(0, 181, dTheta)
+    thetaCIR = np.arange(0, 360, dTheta)
 
     print('Getting projections\n')
     mySino = getProj(myImg, thetaCIR)  #numpy array
@@ -233,32 +229,32 @@ if __name__ == '__main__':
     reconImg2 = Image.fromarray(recon4.astype('uint8'))
 
     # FBP
-    dTheta = 10
-    thetaFBP = np.arange(0,181, dTheta)
+    # dTheta = 3
+    # thetaFBP = np.arange(0,181, dTheta)
 
-    print('Getting projections\n')
-    mySino = getProj(myImg, thetaFBP)  #numpy array
+    # print('Getting projections\n')
+    # mySino = getProj(myImg, thetaFBP)  #numpy array
 
-    print('Filtering\n')
-    filtSino = projFilter(mySino)  #numpy array
+    # print('Filtering\n')
+    # filtSino = projFilter(mySino)  #numpy array
 
-    print('Performing backprojection')  
-    recon = backproject(filtSino, thetaFBP)
-    recon2 = np.round((recon-np.min(recon))/np.ptp(recon)*255) #convert values to integers 0-255
-    reconImg = Image.fromarray(recon2.astype('uint8'))
+    # print('Performing backprojection')  
+    # recon = backproject(filtSino, thetaFBP)
+    # recon2 = np.round((recon-np.min(recon))/np.ptp(recon)*255) #convert values to integers 0-255
+    # reconImg = Image.fromarray(recon2.astype('uint8'))
 
 
     # Display results 
-    fig3, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1,5, figsize=(12,4))
+    fig3, (ax1, ax4, ax5) = plt.subplots(1,3, figsize=(12,4))
 
     ax1.set_title('Original Image')
     ax1.imshow(myImg, cmap='gray')
     
-    ax2.set_title('FBP')
-    ax2.imshow(reconImg, cmap='gray')
+    # ax2.set_title('FBP')
+    # ax2.imshow(reconImg, cmap='gray')
 
-    ax3.set_title('Error')
-    ax3.imshow(ImageChops.difference(myImg, reconImg), cmap='gray')
+    # ax3.set_title('Error')
+    # ax3.imshow(ImageChops.difference(myImg, reconImg), cmap='gray')
 
     ax4.set_title('CIR')
     ax4.imshow(reconImg2, cmap='gray')
@@ -267,7 +263,4 @@ if __name__ == '__main__':
     ax5.imshow(ImageChops.difference(myImg, reconImg2), cmap='gray')
 
     plt.show()
-
-
-#01200709954
 
